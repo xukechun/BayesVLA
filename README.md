@@ -58,22 +58,22 @@ Change the libero_spatial to [libero_object, libero_goal, libero_10] for finetun
   We will upload the processed datasets, including [Pick-Place]() collected in IssacSim and [Articulated Object Manipulation]() collected in IssacLab, and [ALOHA]() collected in the real-world.
 
 
-### Pretraining (Optional)
+### Pre-training (Optional)
 Note that pretraining is only for post-contact phase.
 ```bash
   bash scripts/postcontact/pretrain.sh
 ```
 
-### Posttraining
-- Precontact
+### Post-training
+- Pre-contact Phase
   ```bash
   bash scripts/precontact/finetune.sh --config finetune_pp
   ```
-- Postcontact
+- Post-contact Phase
   ```bash
-  # va finetuning
+  # stage 0: va finetuning
   bash scripts/postcontact/finetune.sh --stage 0 --config finetune_pp --va-name [VA_NAME]
-  # vla finetuning
+  # stage 1: vla finetuning
   bash scripts/postcontact/finetune.sh --stage 1 --config finetune_pp --va-name [VA_NAME] --vla-name [VLA_NAME]
   ```
 
@@ -84,10 +84,11 @@ Note that pretraining is only for post-contact phase.
   ```
   By default the naming server runs on `localhost:9090`.
 
-* Launch planning service of your fine-tuned model:
+* Launch remote service of your fine-tuned model:
   ```bash
-  CUDA_VISIBLE_DEVICES=x python -m infer_utils.remote_service \
-    --ckpt ./checkpoints/E2VLA/FINETUNE_EXPERIMENT_NAME/ckpt_xxxxxxx.pt \
+  python -m infer_utils.remote_service \
+    --precontact_ckpt PRECONTACT_CKPT_PATH \
+    --postcontact_ckpt POSTCONTACT_CKPT_PATH \ 
     --uri CUSTOM_URI_NAME
   ```
 
