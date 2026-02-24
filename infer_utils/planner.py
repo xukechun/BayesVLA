@@ -33,7 +33,6 @@ def load_precontact_model(model_name, path, device):
     return model
 
 def load_postcontact_model(model_name, path, device):
-    # load prior model
     ckpt = torch.load(path, map_location=device)
     if model_name == "vla_small":
         model = vla.post_vla_small().to(device)
@@ -109,16 +108,15 @@ def get_grasp_trajectory(init_eef_pose, grasp_pose, steps_per_phase=50, tcp2ee=N
 class TrajPlanner(object):
     def __init__(
         self, 
-        prob_model_name: str,
-        prior_model_name: str,
-        prob_ckpt_path: str, 
-        prior_ckpt_path: str, 
-        config: DataConfig, 
+        precontact_model_name: str,
+        postcontact_model_name: str,
+        precontact_ckpt_path: str, 
+        postcontact_ckpt_path: str, 
         device: str = "cuda:0", 
         ensemble: int = -1
     ):
-        self.vla_precontact = load_precontact_model(prob_model_name, prob_ckpt_path, device)
-        self.vla_postcontact = load_postcontact_model(prior_model_name, prior_ckpt_path, device)
+        self.vla_precontact = load_precontact_model(precontact_model_name, precontact_ckpt_path, device)
+        self.vla_postcontact = load_postcontact_model(postcontact_model_name, postcontact_ckpt_path, device)
 
         self.ensemble = int(ensemble)
         self.ensembler_lock = threading.Lock()
@@ -130,7 +128,6 @@ class TrajPlanner(object):
         self.obs_lock = threading.Lock()
         
         self.device = device
-        self.config = config
         self.last_obs_data = None
         self.grasp_masks = None
     
@@ -153,7 +150,7 @@ class TrajPlanner(object):
         else:
             raise TypeError("Unsupported type of config: {}".format(type(config)))
         self.config = config
-    
+
     def set_prompt(self, prompt_text: str):
         """
         Args:
@@ -256,7 +253,7 @@ class TrajPlanner(object):
                 obs_data[k] = [obs_data[k][0]] * sample_num
         return obs_data
     
-    def _run_prior_inference(self, obs_data):
+    def _run_postcontact_inference(self, obs_data):
         obs_data = Trainer.preprocess_data(
             obs_data, self.device
         )
@@ -278,7 +275,7 @@ class TrajPlanner(object):
             )  # (B, Ta, 17)
         return actions
 
-    def _run_prob_inference(self, obs_data):
+    def _run_precontact_inference(self, obs_data):
         obs_data = Trainer.preprocess_data(
             obs_data, self.device
         )
@@ -323,7 +320,7 @@ class TrajPlanner(object):
             return None
         
         obs_data = self._make_data_for_infer(obs_frames, sample_num)
-        actions = self._run_prior_inference(obs_data)
+        actions = self._run_postcontact_inference(obs_data)
         
         self.last_obs_data = obs_data
         actions = actions.detach().cpu().numpy()  # (1, Ta, 17)
@@ -377,7 +374,7 @@ class TrajPlanner(object):
             return None
         
         obs_data = self._make_data_for_infer(obs_frames)
-        actions = self._run_prob_inference(obs_data)
+        actions = self._run_precontact_inference(obs_data)
         
         self.last_obs_data = obs_data
         actions = actions.detach().cpu().numpy()  # (4, 4)
