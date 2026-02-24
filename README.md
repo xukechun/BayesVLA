@@ -51,7 +51,6 @@ Given VLA datasets with modality imbalance, BayesVLA models the VLA policy using
   ```bash
   bash scripts/data_preprocessing/process_libero.sh
   ```
-Change the libero_spatial to [libero_object, libero_goal, libero_10] for finetuning and evaluation on other task-suites.
 
 
 * Self-built Datasets
