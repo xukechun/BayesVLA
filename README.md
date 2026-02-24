@@ -54,6 +54,7 @@ Given VLA datasets with modality imbalance, BayesVLA models the VLA policy using
 
 
 * Self-built Datasets
+
   We will upload the processed datasets, including [Pick-Place]() collected in IssacSim and [Articulated Object Manipulation]() collected in IssacLab, and [ALOHA]() collected in the real-world.
 
 
