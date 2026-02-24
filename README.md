@@ -72,9 +72,9 @@ Note that pretraining is only for post-contact phase.
 - Post-contact Phase
   ```bash
   # stage 0: va finetuning
-  bash scripts/postcontact/finetune.sh --stage 0 --config finetune_pp --va-name [VA_NAME]
+  bash scripts/postcontact/finetune.sh --stage 0 --config finetune_pp --va-name YOUR_VA_NAME
   # stage 1: vla finetuning
-  bash scripts/postcontact/finetune.sh --stage 1 --config finetune_pp --va-name [VA_NAME] --vla-name [VLA_NAME]
+  bash scripts/postcontact/finetune.sh --stage 1 --config finetune_pp --va-name YOUR_VA_NAME --vla-name YOUR_VLA_NAME
   ```
 
 ### Evaluation
