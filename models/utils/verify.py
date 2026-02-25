@@ -3,7 +3,7 @@ import numpy as np
 from torch import Tensor
 
 from ..action_expert import states2action, action2states
-from ..dataset import get_train_loader, rbd, visualize_traj
+from data_utils.dataset_base import get_train_loader, rbd, visualize_traj
 
 
 train_loader = get_train_loader(4, 1)

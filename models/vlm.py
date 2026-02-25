@@ -2,8 +2,8 @@ import torch
 from einops import rearrange
 from torch import nn, Tensor
 from typing import Optional, List
-from models.encoders.clip_enc import Encoder
-from models.layers.pe import RoPE
+from .encoders.clip_enc import Encoder
+from .layers.pe import RoPE
 
 
 class VLOutput(object):

@@ -3,10 +3,11 @@
 <div align="center">
 <h2 style="border-bottom: none; margin-bottom: 0px ">Seeing to Act, Prompting to Specify:<br>A Bayesian Factorization of Vision Language Action Policy</h2>
 
-[Kechun Xu](https://xukechun.github.io/) · [Zhenjie Zhu]() · [Anzhe Chen]() · [Shuqi Zhao](https://scholar.google.com/citations?user=IJ2t8pIAAAAJ&hl=en&oi=ao) · [Qing Huang]() · [Yife Yang](https://scholar.google.com/citations?user=Pu9UyugAAAAJ&hl=en&oi=ao)<br>[Haojian Lu](https://scholar.google.com/citations?user=dNAbVgIAAAAJ&hl=en) · [Rong Xiong](https://scholar.google.com/citations?user=1hI9bqUAAAAJ&hl=en) · [Masayoshi Tomizuka](https://msc.berkeley.edu/people/tomizuka.html) · [Yue Wang](https://ywang-zju.github.io/)
+[Kechun Xu](https://xukechun.github.io/) · [Zhenjie Zhu]() · [Anzhe Chen]() · [Shuqi Zhao](https://scholar.google.com/citations?user=IJ2t8pIAAAAJ&hl=en&oi=ao) · [Qing Huang]() · [Yifei Yang](https://scholar.google.com/citations?user=Pu9UyugAAAAJ&hl=en&oi=ao)<br>[Haojian Lu](https://scholar.google.com/citations?user=dNAbVgIAAAAJ&hl=en) · [Rong Xiong](https://scholar.google.com/citations?user=1hI9bqUAAAAJ&hl=en) · [Masayoshi Tomizuka](https://msc.berkeley.edu/people/tomizuka.html) · [Yue Wang](https://ywang-zju.github.io/)
 
 <a href="https://arxiv.org/abs/2512.11218"><img src='https://img.shields.io/badge/arXiv-BayesVLA-red' alt='Paper PDF'></a>
 <a href='https://xukechun.github.io/papers/BayesVLA/'><img src='https://img.shields.io/badge/Project_Page-BayesVLA-green' alt='Project Page'></a>
+<a href='https://www.bilibili.com/video/BV1eA63BHExy/'><img src='https://img.shields.io/badge/Video-BayesVLA-blue' alt='Video'></a>
 
 </div>
 
@@ -53,9 +54,9 @@ Given VLA datasets with modality imbalance, BayesVLA models the VLA policy using
   ```
 
 
-* Self-built Datasets
+* Self-collected Datasets
 
-  We will upload the processed datasets, including [Pick-Place]() collected in IssacSim and [Articulated Object Manipulation]() collected in IssacLab, and [ALOHA]() collected in the real-world.
+  We upload the [processed datasets](https://huggingface.co/datasets/KechunXu1/BayesVLA), including [Pick-Place]() collected in IssacSim and [Articulated Object Manipulation]() collected in IssacLab, and [ALOHA]() collected in the real-world.
 
 
 ### Pre-training (Optional)
@@ -67,14 +68,14 @@ Note that pretraining is only for post-contact phase.
 ### Post-training
 - Pre-contact Phase
   ```bash
-  bash scripts/precontact/finetune.sh --config finetune_pp
+  bash scripts/precontact/finetune.sh --config finetune_pp_arti
   ```
 - Post-contact Phase
   ```bash
   # stage 0: va finetuning
-  bash scripts/postcontact/finetune.sh --stage 0 --config finetune_pp --va-name YOUR_VA_NAME
+  bash scripts/postcontact/finetune.sh --stage 0 --config finetune_pp_arti --va-name YOUR_VA_NAME
   # stage 1: vla finetuning
-  bash scripts/postcontact/finetune.sh --stage 1 --config finetune_pp --va-name YOUR_VA_NAME --vla-name YOUR_VLA_NAME
+  bash scripts/postcontact/finetune.sh --stage 1 --config finetune_pp_arti --va-name YOUR_VA_NAME --vla-name YOUR_VLA_NAME
   ```
 
 ### Evaluation
