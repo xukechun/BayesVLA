@@ -120,7 +120,7 @@ def align_data(
 ) -> Dict[str, np.ndarray]:
     
     query_data = {k: [] for k in train_data}
-    bin_indices = np.digitize(query_time, train_time)
+    bin_indices = np.searchsorted(train_time, query_time, side='right')
 
     # query_time < min(train_time)
     mask = (bin_indices == 0)

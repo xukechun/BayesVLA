@@ -49,7 +49,7 @@ def visualize_traj(
         weTs = ee_states[:, :, :16].view(Ta, nee, 4, 4)  # (Ta, nee, 4, 4)
 
         ceTs = (
-            rearrange(torch.inverse(wcT), "ncam r c -> () () ncam r c") @ 
+            rearrange(torch.linalg.inv(wcT), "ncam r c -> () () ncam r c") @ 
             rearrange(weTs, "Ta nee r c -> Ta nee () r c")
         )  # (Ta, nee, ncam, 4, 4)
         cets = ceTs[..., :3, 3]  # (Ta, nee, ncam, 3)

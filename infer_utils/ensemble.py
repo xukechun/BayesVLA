@@ -78,7 +78,7 @@ class TrajEnsembler(object):
         if len(self.history_traj) > 1:
             for prev_traj, prev_time in zip(list(self.history_traj)[:-1], 
                                             list(self.history_time)[:-1]):
-                bin_indices = np.digitize(new_time, prev_time)
+                bin_indices = np.searchsorted(prev_time, new_time, side='right')
                 mask = (bin_indices > 0) & (bin_indices < len(prev_time))
                 candidate_weights.append(mask.astype(np.float32))
                 

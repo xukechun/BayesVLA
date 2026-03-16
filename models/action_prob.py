@@ -168,7 +168,7 @@ def ee2cam(cur_wcT: Tensor, ee_states: Tensor):
     """
     cur_wcT = cur_wcT.float()
     ee_states = ee_states.float()
-    ee_states_cam = torch.inverse(cur_wcT[:, None]) @ ee_states
+    ee_states_cam = torch.linalg.inv(cur_wcT[:, None]) @ ee_states
 
     r = matrix_to_rotation_6d(ee_states_cam[:, :, :3, :3])
     t = ee_states_cam[:, :, :3, 3]
@@ -187,11 +187,11 @@ def space_ee2cam(cur_wcT: Tensor, cur_weT: Tensor, fut_weT: Tensor):
     Returns:
         t3r6 (Tensor): some repr of ^{cam} v _{ee} * dt, shape (B, T, 9)
     """
-    e1e2T = torch.inverse(cur_weT[:, None]) @ fut_weT  # (B, T, 4, 4)
+    e1e2T = torch.linalg.inv(cur_weT[:, None]) @ fut_weT  # (B, T, 4, 4)
     e1e2R = e1e2T[:, :, :3, :3]  # (B, T, 3, 3)
     e1e2t = e1e2T[:, :, :3, 3]  # (B, T, 3)
 
-    ceT = torch.inverse(cur_wcT) @ cur_weT  # (B, 4, 4)
+    ceT = torch.linalg.inv(cur_wcT) @ cur_weT  # (B, 4, 4)
     ceR = ceT[:, :3, :3]  # (B, 3, 3)
     
     r = matrix_to_rotation_6d(ceR[:, None] @ e1e2R @ ceR[:, None].transpose(-1, -2))
@@ -210,7 +210,7 @@ def space_cam2ee(cur_wcT: Tensor, cur_weT: Tensor, t3r6: Tensor):
     Returns:
         fut_weT (Tensor), future ee pose in world frame, shape (B, T, 4, 4)
     """
-    ecT = torch.inverse(cur_weT) @ cur_wcT  # (B, 4, 4)
+    ecT = torch.linalg.inv(cur_weT) @ cur_wcT  # (B, 4, 4)
     ecR = ecT[:, :3, :3]  # (B, 3, 3)
     
     e1e2R = ecR[:, None] @ rotation_6d_to_matrix(t3r6[..., 3:]) @ ecR[:, None].transpose(-1, -2)

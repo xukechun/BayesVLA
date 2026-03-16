@@ -6,6 +6,7 @@ import argparse
 from typing import Dict
 from datetime import datetime
 from torch import Tensor
+import torch.nn.functional as F
 import torch.optim as optim
 from torchvision.transforms import v2
 import torch.distributed as dist
@@ -62,26 +63,40 @@ class AverageMeter(object):
 
 
 def reduce_metrics(metrics: dict, is_dist: bool = False):
-    """Reduce metrics across all processes in distributed training"""
+    """Reduce metrics across all processes in distributed training.
+    
+    Batches all scalar values into a single tensor for one all_reduce call
+    instead of one call per metric, reducing synchronization overhead.
+    """
     if not is_dist:
         return metrics
     
-    # Convert scalar metrics to tensors and reduce them
+    # Separate scalar metrics (to batch) from non-scalar ones (to keep as-is)
+    scalar_keys = []
+    scalar_vals = []
     reduced_metrics = {}
+    
     for key, val in metrics.items():
         if isinstance(val, torch.Tensor):
-            if val.numel() == 1:  # scalar tensor
-                tensor_val = val.detach().clone().to(torch.cuda.current_device())
-                dist.all_reduce(tensor_val, op=dist.ReduceOp.SUM)
-                reduced_metrics[key] = (tensor_val.item() / dist.get_world_size())
+            if val.numel() == 1:
+                scalar_keys.append(key)
+                scalar_vals.append(val.detach().float())
             else:
-                reduced_metrics[key] = val  # non-scalar tensor, keep as is
+                reduced_metrics[key] = val
         elif isinstance(val, (int, float)):
-            tensor_val = torch.tensor(val, device=torch.cuda.current_device(), dtype=torch.float32)
-            dist.all_reduce(tensor_val, op=dist.ReduceOp.SUM)
-            reduced_metrics[key] = (tensor_val.item() / dist.get_world_size())
+            scalar_keys.append(key)
+            scalar_vals.append(torch.tensor(val, dtype=torch.float32))
         else:
-            reduced_metrics[key] = val  # other types, keep as is
+            reduced_metrics[key] = val
+    
+    # Batch all scalar metrics into a single all_reduce call
+    if scalar_keys:
+        batched = torch.stack(scalar_vals).to(torch.cuda.current_device())
+        dist.all_reduce(batched, op=dist.ReduceOp.SUM)
+        batched = batched / dist.get_world_size()
+        for key, val in zip(scalar_keys, batched):
+            reduced_metrics[key] = val.item()
+    
     return reduced_metrics
 
 
@@ -134,6 +149,7 @@ def get_data_loader_for_cfg(cfg: TrainConfig, is_dist: bool = False):
             num_workers=cfg.workers,
             persistent_workers=cfg.persistent_workers,
             prefetch_factor=2,
+            pin_memory=True,
         )
         return dataloader, sampler
     else:
@@ -314,20 +330,25 @@ class Trainer(object):
             return a
         
         if H > W:
-            pad_l = pad_r = 0
             pad_t = (H - W) // 2
             pad_b = H - W - pad_t
-            pad = v2.Pad((pad_l, pad_t, pad_r, pad_b), fill=0, 
-                         padding_mode="edge" if pad_edge else "constant")
-            return pad(a)
-        
-        if H < W:
-            pad_t = pad_b = 0
+            padding = (0, 0, pad_t, pad_b)
+        else:  # H < W
             pad_l = (W - H) // 2
             pad_r = W - H - pad_l
-            pad = v2.Pad((pad_l, pad_t, pad_r, pad_b), fill=0, 
-                         padding_mode="edge" if pad_edge else "constant")
-            return pad(a)
+            padding = (pad_l, pad_r, 0, 0)
+        
+        if pad_edge:
+            # F.pad replicate mode supports up to 5D; reshape if needed
+            orig_shape = a.shape
+            if a.ndim > 5:
+                a = a.reshape(-1, *a.shape[-3:])
+            a = F.pad(a, padding, mode="replicate")
+            if len(orig_shape) > 5:
+                a = a.reshape(*orig_shape[:-2], *a.shape[-2:])
+            return a
+        else:
+            return F.pad(a, padding, mode="constant", value=0)
     
     @classmethod
     def preprocess_data(
@@ -480,22 +501,26 @@ class Trainer(object):
                         averages[key] = AverageMeter()
                     averages[key].append(val)
                 
-                # Reduce metrics across processes for logging
-                avg_metrics = {k: v.avg() for k, v in averages.items()}
-                reduced_metrics = reduce_metrics(avg_metrics, self.is_dist)
-                
+                # Print local averages every iteration (no distributed sync needed)
                 if is_main_process():
-                    for key, val in reduced_metrics.items():
-                        print_strings.append("{} = {:.3e}".format(key, val))
+                    for key in averages:
+                        print_strings.append("{} = {:.3e}".format(key, averages[key].avg()))
                     print("[INFO] {}/{} | {} | lr = {:.3e}".format(
                         self.current_iters, self.cfg.max_iterations, " | ".join(print_strings),
                         self.scheduler.get_last_lr()[0]))
 
                 ### save ckpt and log
-                if self.current_iters % self.cfg.save_latest_interval == 0:
+                # Only reduce metrics across processes at save/log intervals
+                need_reduce = (
+                    (self.current_iters % self.cfg.save_latest_interval == 0) or
+                    ((self.current_iters % self.cfg.save_interval == 0) and (self.cfg.save_interval > 0)) or
+                    (self.current_iters % self.cfg.log_interval == 0)
+                )
+                if need_reduce:
                     avg_metrics = {k: v.avg() for k, v in averages.items()}
-                    # Reduce metrics to get accurate total_loss across all processes
                     reduced_metrics = reduce_metrics(avg_metrics, self.is_dist)
+
+                if self.current_iters % self.cfg.save_latest_interval == 0:
                     latest_score = reduced_metrics.get("total_loss", avg_metrics.get("total_loss", 0.0))
                     
                     if (
@@ -513,16 +538,13 @@ class Trainer(object):
                         self.save_model("ckpt_best.pt", self.best_score, latest_score)
                 
                 if (self.current_iters % self.cfg.save_interval == 0) and (self.cfg.save_interval > 0):
-                    avg_metrics = {k: v.avg() for k, v in averages.items()}
-                    reduced_metrics = reduce_metrics(avg_metrics, self.is_dist)
                     latest_score = reduced_metrics.get("total_loss", avg_metrics.get("total_loss", 0.0))
                     self.save_model("ckpt_{:0>7d}.pt".format(self.current_iters), 
                                     self.best_score, latest_score)
                 
                 if self.current_iters % self.cfg.log_interval == 0:
-                    avg_metrics = {"train/"+k: v.avg() for k, v in averages.items()}
-                    reduced_metrics = reduce_metrics(avg_metrics, self.is_dist)
-                    self.log_metrics(reduced_metrics)
+                    log_metrics = {"train/"+k: v for k, v in reduced_metrics.items()}
+                    self.log_metrics(log_metrics)
                     for key in averages.keys():
                         averages[key].reset()
 

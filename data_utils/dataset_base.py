@@ -25,30 +25,11 @@ def infer_record_dt(t: np.ndarray, default: float = 1.0):
 
 
 def find_closest_ind(train: np.ndarray, query: np.ndarray):
-    bin_indices = np.digitize(query, train)
-    sample_indices = []
-    
-    # query < train
-    mask = (bin_indices == 0)
-    if np.any(mask):
-        sample_indices.append(np.array([0]*mask.sum(), dtype=bin_indices.dtype))
-    
-    # query in train
-    mask = (bin_indices > 0) & (bin_indices < len(train))
-    r_ind = bin_indices[mask]
-    l_ind = r_ind - 1
-    
-    dist0 = np.abs(train[l_ind] - query[mask])
-    dist1 = np.abs(train[r_ind] - query[mask])
-    sample_indices.append(np.where(dist0 < dist1, l_ind, r_ind))
-
-    # query > train
-    mask = (bin_indices == len(train))
-    if np.any(mask):
-        sample_indices.append(np.array([len(train)-1]*mask.sum(), dtype=bin_indices.dtype))
-    
-    sample_indices = np.concatenate(sample_indices)
-    return sample_indices
+    idx = np.searchsorted(train, query, side='left')
+    idx = np.clip(idx, 1, len(train) - 1)
+    left = idx - 1
+    right = idx
+    return np.where(np.abs(query - train[left]) < np.abs(query - train[right]), left, right)
 
 
 class DataSampler(object):
@@ -706,6 +687,7 @@ def get_dataloader(
         persistent_workers=persistent_workers,
         shuffle=shuffle, 
         sampler=sampler,
+        pin_memory=True,
     )
     return dataloader
 
@@ -740,7 +722,7 @@ def visualize_traj(data: Dict[str, Tensor], cam_idx: int = 0):
     # data["gt_future_ee_states"]: (Ta, 4, 4)
     weTs = data["gt_future_ee_states"][:, :16].view(-1, 4, 4)  # (Ta, 4, 4)
 
-    ceTs = torch.inverse(wcT)[None] @ weTs  # (Ta, 4, 4)
+    ceTs = torch.linalg.inv(wcT)[None] @ weTs  # (Ta, 4, 4)
     cets = ceTs[:, :3, 3]  # (Ta, 3)
 
     proj_norm = cets[:, :2] / cets[:, 2:3]  # (Ta, 2)

@@ -100,7 +100,7 @@ class PinholeCamera(object):
         """
         if wcT is not None:
             cwT = np.linalg.inv(wcT) if isinstance(wcT, np.ndarray) else \
-                torch.inverse(wcT)
+                torch.linalg.inv(wcT)
             points = points @ cwT[:3, :3].T + cwT[:3, 3]
         
         xy = points[..., :2] / (points[..., 2:3] + 1e-16)
