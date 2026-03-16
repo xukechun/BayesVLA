@@ -327,7 +327,7 @@ class ActionExpert(nn.Module):
             metrics (Dict[str, Tensor]): metrics for logging
         """
         # get relative camera extrinsic referring to camera 0 at the latest timestep
-        cam_extr_ref0 = torch.inverse(obs_extrinsics[:, -1:, 0:1]) @ obs_extrinsics
+        cam_extr_ref0 = torch.linalg.inv(obs_extrinsics[:, -1:, 0:1]) @ obs_extrinsics
         obs_info = self.scene_encoder.encode_obs(
             rgb=obs_rgbs, 
             mask=obs_masks, 
@@ -351,7 +351,7 @@ class ActionExpert(nn.Module):
                                              gt_future_ee_states)
         
         # prepare data for film generation
-        ceT = torch.inverse(latest_cam_poses) @ current_ee_pose[:, None]  # (B, Ncam, 4, 4)
+        ceT = torch.linalg.inv(latest_cam_poses) @ current_ee_pose[:, None]  # (B, Ncam, 4, 4)
         cet = ceT[:, :, :3, 3]  # (B, Ncam, 3)
 
         history_film: Tensor = self.history_action_pool(
@@ -470,11 +470,11 @@ def space_ee2cam(cur_wcT: Tensor, cur_weT: Tensor, fut_weT: Tensor):
     Returns:
         t3r6 (Tensor): some repr of ^{cam} v _{ee} * dt, shape (B, T, 9)
     """
-    e1e2T = torch.inverse(cur_weT[:, None]) @ fut_weT  # (B, T, 4, 4)
+    e1e2T = torch.linalg.inv(cur_weT[:, None]) @ fut_weT  # (B, T, 4, 4)
     e1e2R = e1e2T[:, :, :3, :3]  # (B, T, 3, 3)
     e1e2t = e1e2T[:, :, :3, 3]  # (B, T, 3)
 
-    ceT = torch.inverse(cur_wcT) @ cur_weT  # (B, 4, 4)
+    ceT = torch.linalg.inv(cur_wcT) @ cur_weT  # (B, 4, 4)
     ceR = ceT[:, :3, :3]  # (B, 3, 3)
     
     r = matrix_to_rotation_6d(ceR[:, None] @ e1e2R @ ceR[:, None].transpose(-1, -2))
@@ -493,7 +493,7 @@ def space_cam2ee(cur_wcT: Tensor, cur_weT: Tensor, t3r6: Tensor):
     Returns:
         fut_weT (Tensor), future ee pose in world frame, shape (B, T, 4, 4)
     """
-    ecT = torch.inverse(cur_weT) @ cur_wcT  # (B, 4, 4)
+    ecT = torch.linalg.inv(cur_weT) @ cur_wcT  # (B, 4, 4)
     ecR = ecT[:, :3, :3]  # (B, 3, 3)
     
     e1e2R = ecR[:, None] @ rotation_6d_to_matrix(t3r6[..., 3:]) @ ecR[:, None].transpose(-1, -2)
